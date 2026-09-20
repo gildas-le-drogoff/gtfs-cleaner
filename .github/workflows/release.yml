@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $TAG_VERSION does not match Cargo.toml version $CARGO_VERSION"
+            exit 1
+          fi
+
+      - name: Build (release, musl)
+        run: cargo build --release --target x86_64-unknown-linux-musl --bin gtfs-cleaner
+
+      - name: Package
+        run: |
+          ARCHIVE="gtfs-cleaner-${GITHUB_REF_NAME}-x86_64-unknown-linux-musl.tar.gz"
+          tar -czf "$ARCHIVE" -C target/x86_64-unknown-linux-musl/release gtfs-cleaner
+          sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            gtfs-cleaner-*.tar.gz
+            gtfs-cleaner-*.tar.gz.sha256
