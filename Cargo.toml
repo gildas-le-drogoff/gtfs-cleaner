@@ -1,0 +1,15 @@
+[package]
+name = "gtfs-cleaner"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+csv = "1"
+gzp = { version = "2", default-features = false, features = ["deflate_rust"] }
+memchr = "2"
+rayon = "1"
+zip = "9"
+
+[profile.release]
+lto = true
